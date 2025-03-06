@@ -8,11 +8,5 @@ include_directories(/workspaces/vpp/build-root/install-vpp_debug-native/vpp/incl
 link_directories(/workspaces/vpp/build-root/install-vpp_debug-native/vpp/lib/aarch64-linux-gnu/)
 
 add_executable(trie main.c domain_trie.c)
-add_executable(vec vec.c)
-add_executable(hash hash.c)
-add_executable(pool pool.c)
 
 target_link_libraries(trie vppinfra)
-target_link_libraries(vec vppinfra)
-target_link_libraries(hash vppinfra)
-target_link_libraries(pool vppinfra)
