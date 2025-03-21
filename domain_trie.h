@@ -17,7 +17,7 @@
 #define LABEL_MAX 63
 #define LABEL_DLM "."
 #define TRIE_HASH_SIZE 1024ULL << 20
-#define TRIE_HASH_BUCKET 8192
+#define TRIE_HASH_BUCKET 81920
 #define TRIE_HASH_NAME "domain_trie_ht"
 
 

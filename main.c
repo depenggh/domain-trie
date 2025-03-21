@@ -1,9 +1,10 @@
 #include <arm_neon.h>
 #include <assert.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include "domain_trie.h"
-#include "vppinfra/bihash_template.h"
+#include <sys/resource.h>
 
 #define count 30000
 #define max_len 24
@@ -11,6 +12,12 @@
 #define label_max 5
 #define label_count 4
 
+void print_res(void)
+{
+    struct rusage usage;
+    getrusage(RUSAGE_SELF, &usage);
+    printf("Resident Memory: %ld KB\n", usage.ru_maxrss);
+}
 
 void generate_domains(char *domain)
 {
@@ -31,6 +38,7 @@ void generate_domains(char *domain)
 
 int main()
 {
+    print_res();
     srand(arc4random());
     domain_trie_t dt = {0};
     clib_mem_init(0, 11ULL << 30);
@@ -41,9 +49,17 @@ int main()
 
     for (int i = 0; i < count * max_len; i += max_len) {
         generate_domains(&(*domains)[i]);
+    //    domain_trie_insert(&dt, &(*domains)[i], i);
+        fformat(stdout, "%s %d\n", &(*domains)[i], i / max_len);
+    }
+    print_res();
+
+    for (int i = 0; i < count * max_len; i += max_len) {
+     //   generate_domains(&(*domains)[i]);
         domain_trie_insert(&dt, &(*domains)[i], i);
         fformat(stdout, "%s %d\n", &(*domains)[i], i / max_len);
     }
+    print_res();
 
     /*domain_trie_insert(&dt, "abc.def.hg.com", 12);*/
     /*domain_trie_insert(&dt, "123.def.hg.com", 23);*/
