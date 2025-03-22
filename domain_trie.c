@@ -1,6 +1,6 @@
 #include "domain_trie.h"
-#include "vppinfra/format.h"
 #include "vppinfra/pool.h"
+#include "vppinfra/types.h"
 #include <vppinfra/bihash_template.c>
 
 int dump_hash_kv(BVT(clib_bihash_kv) *kv, void *args)
@@ -43,9 +43,6 @@ void domain_trie_dump(domain_trie_t *dt)
 void domain_trie_init(domain_trie_t *dt)
 {
     pool_get(dt->trie_pool_start, dt->trie_pool_cur);
-    //dt->trie_pool_cur->label = format(0, "%s", ".");
-    dt->trie_pool_cur->backendsets = CLIB_U64_MAX;
-
     BV(clib_bihash_init)(&(dt->trie_pool_cur->ht), TRIE_HASH_NAME, TRIE_HASH_BUCKET, TRIE_HASH_SIZE);
 }
 
@@ -77,7 +74,7 @@ void domain_trie_insert(domain_trie_t *dt, const char *domain, u64 backendsets)
 
     for (int i = vec_len(labels); i > 0; i--) {
         kv.key = (u64)format(0, "%s", labels[i - 1]);
-        kv.value = 0;
+        kv.value = CLIB_U64_MAX;
 
         current = pool_elt_at_index(*pool, current_index);
         int rc = BV(clib_bihash_search)(&(current->ht), &kv, &kv);
@@ -97,7 +94,7 @@ void domain_trie_insert(domain_trie_t *dt, const char *domain, u64 backendsets)
             BV(clib_bihash_add_del)(&current->ht, &kv, 1);
             current_index = *cur - *pool;
         } else {
-             current_index = kv.value;
+             current_index = pool_get_next_index(&dt->trie_pool_start, current_index);
         }
 
     }
