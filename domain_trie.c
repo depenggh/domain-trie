@@ -1,6 +1,6 @@
 #include "domain_trie.h"
-#include "vppinfra/string.h"
-#include "vppinfra/vec.h"
+#include <vppinfra/string.h>
+#include <vppinfra/vec.h>
 #include <vppinfra/bihash_template.c>
 
 void domain_trie_init(domain_trie_t *dt)
@@ -78,6 +78,7 @@ u64 domain_trie_search(domain_trie_t *dt, const char *domain)
     char **labels = break_domain(copy);
 
     BVT(clib_bihash_kv) kv = {0};
+    u64 best_match_key = CLIB_U64_MAX;
     u64 best_match = CLIB_U64_MAX;
     u8 *prefix = NULL;
 
@@ -87,17 +88,22 @@ u64 domain_trie_search(domain_trie_t *dt, const char *domain)
 
         int rc = BV(clib_bihash_search)(&(dt->trie), &kv, &kv );
         if (rc < 0) {
-            vec_del1(prefix, vec_len(prefix) - 1);
+            vec_delete(prefix, clib_strnlen(labels[i], LABEL_MAX), vec_len(prefix) - clib_strnlen(labels[i], LABEL_MAX));
             prefix = format(prefix, "*");
             kv.key = clib_crc32c(prefix, clib_strnlen((const char*)prefix, LABEL_MAX));
 
             int rc = BV(clib_bihash_search)(&(dt->trie), &kv, &kv );
             if (rc < 0) {
                 break;
+            } else {
+                best_match_key = kv.key;
             }
+        } else {
+            best_match_key = kv.key;
         }
     }
 
+    kv.key = best_match_key;
     int rc = BV(clib_bihash_search)(&(dt->backendsets), &kv, &kv );
     if (rc >= 0) {
         best_match = kv.value;
