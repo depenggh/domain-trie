@@ -1,23 +1,32 @@
 #include <arm_neon.h>
 #include <assert.h>
+#include <bits/types/struct_rusage.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "domain_trie.h"
+#include "vppinfra/format.h"
 #include <sys/resource.h>
+#include <sys/time.h>
 
-#define count 30000
-#define max_len 24
+#define count 1000000
+#define max_len 253
 #define label_min 3
-#define label_max 5
+#define label_max 63 
 #define label_count 4
 
-void print_res(void)
+int dump_hash_kv(BVT(clib_bihash_kv) *kv, void *args)
 {
-    struct rusage usage;
-    getrusage(RUSAGE_SELF, &usage);
-    printf("Resident Memory: %ld KB\n", usage.ru_maxrss);
+    fformat(stdout, "%llu %llu\n", kv->key, kv->value);
+    return 1;
 }
+
+
+void dump_hash_table(BVT(clib_bihash) *ht)
+{
+    BV(clib_bihash_foreach_key_value_pair)(ht, dump_hash_kv, (void *)0);
+}
+
 
 void generate_domains(char *domain)
 {
@@ -38,7 +47,8 @@ void generate_domains(char *domain)
 
 int main()
 {
-    print_res();
+    struct rusage start_res, end_res;
+    struct timeval start_time, end_time;
     srand(arc4random());
     domain_trie_t dt = {0};
     clib_mem_init(0, 11ULL << 30);
@@ -49,40 +59,55 @@ int main()
 
     for (int i = 0; i < count * max_len; i += max_len) {
         generate_domains(&(*domains)[i]);
-    //    domain_trie_insert(&dt, &(*domains)[i], i);
-        fformat(stdout, "%s %d\n", &(*domains)[i], i / max_len);
+        /*fformat(stdout, "%s %d\n", &(*domains)[i], i / max_len);*/
     }
-    print_res();
+
+    getrusage(RUSAGE_SELF, &start_res);
+    gettimeofday(&start_time, NULL);
 
     for (int i = 0; i < count * max_len; i += max_len) {
-     //   generate_domains(&(*domains)[i]);
         domain_trie_insert(&dt, &(*domains)[i], i);
         fformat(stdout, "%s %d\n", &(*domains)[i], i / max_len);
     }
-    print_res();
 
-    /*domain_trie_insert(&dt, "abc.def.hg.com", 12);*/
-    /*domain_trie_insert(&dt, "123.def.hg.com", 23);*/
+    getrusage(RUSAGE_SELF, &end_res);
+    gettimeofday(&end_time, NULL);
 
-    /*domain_trie_insert(&dt, "ag.def.hg.org", 45);*/
-    /*domain_trie_insert(&dt, "123.def.hg.org", 78);*/
+    u64 all_mem = end_res.ru_maxrss - start_res.ru_maxrss;
+    u64 all_time = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000L;
+    fformat(stdout,"Insertion: time: %llu sec, memory: %llu KB\n", all_time, all_mem);
 
-    /*domain_trie_insert(&dt, "*.acgw.cisco.com", 90);*/
-    /*domain_trie_insert(&dt, "1547.*.sc.ciscoplus.com", 200);*/
-    /*domain_trie_insert(&dt, "usw1.*.sc.*.cisco.com", 300);*/
+    domain_trie_insert(&dt, "abc.def.hg.com", 12);
+    domain_trie_insert(&dt, "123.def.hg.org", 23);
 
-    /*domain_trie_dump(&dt);*/
+    domain_trie_insert(&dt, "ag.def.hg.org", 45);
+    domain_trie_insert(&dt, "123.def.hg.org", 78);
 
+    domain_trie_insert(&dt, "*.acgw.cisco.com", 90);
+    domain_trie_insert(&dt, "1547.*.sc.ciscoplus.com", 200);
+    domain_trie_insert(&dt, "usw1.*.sc.*.cisco.com", 300);
 
-    int idx = 10 * max_len;
-    u64 backendsets = domain_trie_search(&dt, &(*domains)[idx]);
-    fformat(stdout, "%s: %llu\n", &(*domains)[idx], backendsets);
-    assert(backendsets == ((u64)idx));
+    /*dump_hash_table(&dt.trie);*/
+    getrusage(RUSAGE_SELF, &start_res);
+    gettimeofday(&start_time, NULL);
+
+    u64 backendsets;
+    const char *test = "abc.def.hg.com";
+    backendsets = domain_trie_search(&dt, test);
+    fformat(stdout, "%s: %llu\n", test, backendsets);
+    assert(backendsets == 12);
+
+    getrusage(RUSAGE_SELF, &end_res);
+    gettimeofday(&end_time, NULL);
+
+    all_mem = end_res.ru_maxrss - start_res.ru_maxrss;
+    all_time = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000L;
+    fformat(stdout,"Search: time: %llu sec, memory: %llu KB\n", all_time, all_mem);
 
     /*test = "123.def.hg.org";*/
     /*backendsets = domain_trie_search(&dt, test);*/
     /*fformat(stdout, "%s: %llu\n", test, backendsets);*/
-    /*assert(backendsets == 78);*/
+    /*assert(backendsets == 23);*/
 
     /*test = "123.acgw.cisco.com";*/
     /*backendsets = domain_trie_search(&dt, test);*/
