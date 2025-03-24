@@ -114,5 +114,6 @@ int main()
     fformat(stdout, "%s: %llu\n", test, backendsets);
     assert(backendsets == 300);
 
+    free(domains);
     return EXIT_SUCCESS;
 }
