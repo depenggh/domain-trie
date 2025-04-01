@@ -1,5 +1,5 @@
 # 1 mil domain name for iprtree
-only build the iprtree once at the end.
+with optimization: only build the iprtree once at the end.
 ```
 Insertion: time: 85 sec, memory: 237312 KB
 ```
