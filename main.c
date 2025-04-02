@@ -62,7 +62,7 @@ int main()
         generate_domains(&(*domains)[i]);
     }
 
-    if (1) {
+    if (0) {
         getrusage(RUSAGE_SELF, &start_res);
         gettimeofday(&start_time, NULL);
 
@@ -130,14 +130,24 @@ int main()
             fformat(stdout, "%s %d\n", &(*domains)[i], i / max_len);
         }
 
-        domain_iprtree_commit(&sm);
-
         getrusage(RUSAGE_SELF, &end_res);
         gettimeofday(&end_time, NULL);
 
         u64 all_mem = end_res.ru_maxrss - start_res.ru_maxrss;
         u64 all_time = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000L;
         fformat(stdout,"Insertion: time: %llu sec, memory: %llu KB\n", all_time, all_mem);
+
+        getrusage(RUSAGE_SELF, &start_res);
+        gettimeofday(&start_time, NULL);
+
+        domain_iprtree_commit(&sm);
+
+        getrusage(RUSAGE_SELF, &end_res);
+        gettimeofday(&end_time, NULL);
+
+        all_mem = end_res.ru_maxrss - start_res.ru_maxrss;
+        all_time = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000L;
+        fformat(stdout,"Build tree: time: %llu sec, memory: %llu KB\n", all_time, all_mem);
     }
 
     free(domains);
