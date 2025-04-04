@@ -62,7 +62,7 @@ int main()
         generate_domains(&(*domains)[i]);
     }
 
-    if (0) {
+    if (1) {
         getrusage(RUSAGE_SELF, &start_res);
         gettimeofday(&start_time, NULL);
 

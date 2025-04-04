@@ -12,7 +12,7 @@ Build tree: time: 56 sec, memory: 41728 KB
 
 # 1 mil domain name for patricia trie
 ```
-Insertion: time: 25 sec, memory: 365440 KB
+Insertion: time: 23 sec, memory: 295040 KB
 ```
 
 
@@ -73,3 +73,6 @@ third, insert backendsets to backend hasht able:
 |6      |   456        |
 
 
+# Questions
+1. hash table collision
+2. optomal value for load factor
