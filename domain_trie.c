@@ -52,24 +52,30 @@ int domain_trie_insert(domain_trie_t *dt, const char *domain, u64 backendsets)
 
     BVT(clib_bihash_kv) kv = {0};
     u8 *prefix = NULL;
-    u64 prefix_hash;
-    u64 label_hash;
 
     for (int i = vec_len(labels) - 1; i >= 0; --i) {
-        prefix = format(prefix, "%s", labels[i]);
-        prefix_hash = clib_crc32c(prefix, clib_strnlen((const char*)prefix, LABEL_MAX));
+        u64 idx = get_label_index(dt, labels[i]);
+        if (idx == ~(u64)0) {
+            return -1;
+        }
 
-        kv.key = prefix_hash;
+        prefix = format(prefix, "%llu ", idx);
+        u8 *key = format(0, "%v%c", prefix, '\0');
+        kv.key = (u64)key;
 
         int rc = BV(clib_bihash_search)(&(dt->trie), &kv, &kv );
         if (rc < 0) {
-            kv.value = get_label_index(dt, labels[i]);
+            kv.key = (u64)vec_dup(key);
+            kv.value = 1;
             BV(clib_bihash_add_del)(&dt->trie, &kv, 1);
         }
-    }
 
-    kv.value = backendsets;
-    int rc = BV(clib_bihash_add_del)(&dt->backendsets, &kv, 1);
+        if (i == 0) {
+            kv.value = backendsets;
+            BV(clib_bihash_add_del)(&dt->backendsets, &kv, 1);
+        }
+        vec_free(key);
+    }
 
     free(copy);
     vec_free(labels);
