@@ -28,7 +28,7 @@ typedef struct  {
 } domain_trie_t;
 
 void domain_trie_init(domain_trie_t *dt);
-void domain_trie_insert(domain_trie_t *dt, const char *domain, u64 backendsets);
+int domain_trie_insert(domain_trie_t *dt, const char *domain, u64 backendsets);
 u64 domain_trie_search(domain_trie_t *dt, const char *domain);
 
 #endif

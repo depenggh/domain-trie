@@ -29,19 +29,23 @@ char **break_domain(char *domain)
 u64 get_label_index(domain_trie_t *dt, char *label)
 {
     BVT(clib_bihash_kv) kv = {0};
-    kv.key = clib_crc32c((const u8*)label, clib_strnlen(label, LABEL_MAX));
+    u8 *key = format(0, "%s%c", label, '\0');
+    kv.key = (u64)key;
 
-    int rc = BV(clib_bihash_search)(&(dt->trie), &kv, &kv );
+    int rc = BV(clib_bihash_search)(&(dt->labels), &kv, &kv );
     if (rc < 0) {
-        vec_add1(dt->pool_label_t, label);
+        u8 *tmp = vec_dup(key);
+        vec_add1(dt->pool_label_t, (char *)tmp);
+        kv.key = (u64)tmp;
         kv.value = vec_len(dt->pool_label_t) - 1;
-        BV(clib_bihash_add_del)(&dt->trie, &kv, 1);
+        BV(clib_bihash_add_del)(&dt->labels, &kv, 1);
     }
 
+    vec_free(key);
     return kv.value;
 }
 
-void domain_trie_insert(domain_trie_t *dt, const char *domain, u64 backendsets)
+int domain_trie_insert(domain_trie_t *dt, const char *domain, u64 backendsets)
 {
     char *copy = strndup(domain, LABEL_MAX);
     char **labels = break_domain(copy);
@@ -69,6 +73,7 @@ void domain_trie_insert(domain_trie_t *dt, const char *domain, u64 backendsets)
 
     free(copy);
     vec_free(labels);
+    return 0;
 }
 
 
