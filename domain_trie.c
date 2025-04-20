@@ -79,6 +79,7 @@ int domain_trie_insert(domain_trie_t *dt, const char *domain, u64 backendsets)
 
     free(copy);
     vec_free(labels);
+    vec_free(prefix);
     return 0;
 }
 
@@ -94,14 +95,20 @@ u64 domain_trie_search(domain_trie_t *dt, const char *domain)
     u8 *prefix = NULL;
 
     for (int i = vec_len(labels) - 1; i >= 0; i--) {
-        prefix = format(prefix, "%s", labels[i]);
-        kv.key = clib_crc32c(prefix, clib_strnlen((const char*)prefix, LABEL_MAX));
+        u64 idx = get_label_index(dt, labels[i]);
+        if (idx == ~(u64)0) {
+            return -1;
+        }
+
+        prefix = format(prefix, "%llu ", idx);
+        u8 *key = format(0, "%v%c", prefix, '\0');
+        kv.key = (u64)key;
 
         int rc = BV(clib_bihash_search)(&(dt->trie), &kv, &kv );
         if (rc < 0) {
-            vec_delete(prefix, clib_strnlen(labels[i], LABEL_MAX), vec_len(prefix) - clib_strnlen(labels[i], LABEL_MAX));
-            prefix = format(prefix, "*");
-            kv.key = clib_crc32c(prefix, clib_strnlen((const char*)prefix, LABEL_MAX));
+            vec_del1(key, vec_len(key) - 1);
+            vec_add1(key, 0);
+            kv.key = (u64)key;
 
             int rc = BV(clib_bihash_search)(&(dt->trie), &kv, &kv );
             if (rc < 0) {
@@ -112,6 +119,7 @@ u64 domain_trie_search(domain_trie_t *dt, const char *domain)
         } else {
             best_match_key = kv.key;
         }
+        vec_free(key);
     }
 
     kv.key = best_match_key;
@@ -122,5 +130,6 @@ u64 domain_trie_search(domain_trie_t *dt, const char *domain)
 
     free(copy);
     vec_free(labels);
+    vec_free(prefix);
     return best_match;
 }
