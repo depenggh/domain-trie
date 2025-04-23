@@ -8,23 +8,24 @@
 #include <vppinfra/mem.h>
 #include <vppinfra/string.h>
 #include <vppinfra/types.h>
-#include <vppinfra/pool.h>
 #include <vppinfra/vec.h>
-#include <vppinfra/bihash_8_8.h>
+#include <vppinfra/bihash_vec8_8.h>
 #include <vppinfra/bihash_template.h>
 
 #define DOMAIN_MAX 253
 #define LABEL_MAX 63
 #define LABEL_DLM "."
-#define TRIE_HASH_SIZE 1024ULL << 20
-#define TRIE_HASH_BUCKET 142867
+#define TRIE_HASH_SIZE 1048ULL<< 20
+#define TRIE_HASH_BUCKET 100000
 #define TRIE_HASH_NAME "domain_trie_ht"
+#define BACK_HASH_NAME "domain_back_ht"
+#define LABEL_HASH_NAME "domain_label_ht"
 
 typedef struct  {
     BVT(clib_bihash) trie;
     BVT(clib_bihash) labels;
     BVT(clib_bihash) backendsets;
-    char **pool_label_t;
+    u8 **vec_label_t;
 } domain_trie_t;
 
 void domain_trie_init(domain_trie_t *dt);
