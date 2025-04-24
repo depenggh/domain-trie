@@ -14,8 +14,3 @@ add_executable(trie main.c domain_trie.c iprtree.c domain_iprtree.c)
 
 target_link_libraries(trie vppinfra)
 
-if (ENABLE_ASAN)
-    message(STATUS "AddressSanitizer enabled")
-    target_compile_options(trie PRIVATE -fsanitize=address -fno-omit-frame-pointer)
-    target_link_options(trie PRIVATE -fsanitize=address)
-endif()

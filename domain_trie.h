@@ -15,8 +15,8 @@
 #define DOMAIN_MAX 253
 #define LABEL_MAX 63
 #define LABEL_DLM "."
-#define TRIE_HASH_SIZE 1048ULL<< 20
-#define TRIE_HASH_BUCKET 100000
+#define TRIE_HASH_SIZE 2ULL<< 30
+#define TRIE_HASH_BUCKET 142867
 #define TRIE_HASH_NAME "domain_trie_ht"
 #define BACK_HASH_NAME "domain_back_ht"
 #define LABEL_HASH_NAME "domain_label_ht"

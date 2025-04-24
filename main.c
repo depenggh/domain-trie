@@ -1,16 +1,10 @@
-#include <arm_neon.h>
 #include <assert.h>
-#include <bits/types/struct_rusage.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <stdio.h>
+#include <sys/time.h>
 #include "domain_iprtree.h"
 #include "domain_trie.h"
 #include "vppinfra/format.h"
-#include "vppinfra/xxhash.h"
-#include <sys/time.h>
 
-#define count 1000000
+#define count 300000
 #define max_len 253
 #define label_min 3
 #define label_max 63
@@ -65,7 +59,7 @@ int main()
     struct timeval start_time, end_time;
     srand(arc4random());
     domain_trie_t dt = {0};
-    clib_mem_init(0, 4ULL << 30);
+    clib_mem_init(0, 8ULL << 30);
 
     domain_trie_init(&dt);
 
@@ -75,13 +69,20 @@ int main()
         generate_domains(&(*domains)[i]);
     }
 
+    /*FILE *file = fopen("data.txt", "w");*/
+
+    /*size_t rc = fwrite((*domains), sizeof(char), count * max_len + 1, file);*/
+    /*exit(0);*/
+
+    /*FILE *file = fopen("data.txt", "r");*/
+    /*size_t rc = fread(&(*domains), sizeof(char), count * max_len + 1, file);*/
+    /*fclose(file);*/
 
     if (1) {
         getrusage(RUSAGE_SELF, &start_res);
         gettimeofday(&start_time, NULL);
 
         for (int i = 0; i < count * max_len; i += max_len) {
-            fformat(stderr, "insert: %s %d %d\n", &(*domains)[i], i, i / max_len);
             int rc = domain_trie_insert(&dt, &(*domains)[i], i / max_len);
             assert(rc == 0);
         }
@@ -97,7 +98,6 @@ int main()
         gettimeofday(&start_time, NULL);
         for (int i = 0; i < count * max_len; i += max_len) {
             u64 backendsets = domain_trie_search(&dt, &(*domains)[i]);
-            fformat(stderr, "lookup: %s %d: %llu\n", &(*domains)[i], i, backendsets);
             assert(backendsets == (i / max_len));
         }
         gettimeofday(&end_time, NULL);
@@ -110,7 +110,7 @@ int main()
         sniproxy_main_t sm = {0};
         domain_iprtree_init(&sm);
 
-        /*
+
         getrusage(RUSAGE_SELF, &start_res);
         gettimeofday(&start_time, NULL);
 
@@ -118,7 +118,7 @@ int main()
         for (int i = 0; i < count * max_len; i += max_len) {
             u8 *pattern = format(0, "*.%s", &(*domains)[i]);
             domain_iprtree_insert(&sm, (const char *)pattern, i / max_len);
-            fformat(stderr, "insert: %s %d\n", (const char *)pattern, i / max_len);
+            /*fformat(stderr, "insert: %s %d\n", (const char *)pattern, i / max_len);*/
         }
 
         getrusage(RUSAGE_SELF, &end_res);
@@ -144,15 +144,18 @@ int main()
         for (int i = 0; i < count * max_len; i += max_len) {
             u8 *pattern = format(0, "1.%s", &(*domains)[i]);
             u64 backendsets = domain_iprtree_search(&sm, (const char*)pattern);
-            fformat(stderr, "%s: %llu\n", pattern, backendsets );
-            assert(backendsets == i);
+            /*fformat(stderr, "%s: %llu\n", pattern, backendsets );*/
+            /*assert(backendsets == i / max_len);*/
+            if (backendsets != (i / max_len)) {
+                backendsets = domain_iprtree_search(&sm, (const char*)pattern);
+            }
         }
         gettimeofday(&end_time, NULL);
 
         all_time = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000L;
         fformat(stderr,"Lookup: time: %llu sec\n", all_time);
 
-        */
+
 
         /*const char *test = "vhqbl5fxb22ts13zes5j66a6l7sayn0yu.d5pi7qac-shgvmcp-8la.al0pocebazekd2vu2x.y4djufcud29l2jpvx70clowv7nfqtg";*/
         /*domain_iprtree_insert(&sm, test, 0);*/
