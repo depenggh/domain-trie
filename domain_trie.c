@@ -35,16 +35,15 @@ void insert_domain_labels(domain_trie_t *dt, u8 ** labels)
     BVT(clib_bihash_kv) kv = {0};
 
     for (int i = 0; i < vec_len(labels); ++i) {
-        u8 * key = format(0, "%s%c", labels[i], 0);
-        kv.key = pointer_to_u64(key);
+        kv.key = clib_crc32c(labels[i], vec_len(labels[i]));
 
         int rc = BV(clib_bihash_search)(&(dt->labels), &kv, &kv);
         if (rc < 0) {
             vec_add1(dt->vec_label_t, (u8 *)kv.key);
             kv.value = vec_len(dt->vec_label_t) - 1;
             BV(clib_bihash_add_del)(&(dt->labels), &kv, 1);
-        } else {
-            vec_free(key);
+        }else {
+
         }
     }
 }

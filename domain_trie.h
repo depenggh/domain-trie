@@ -9,7 +9,7 @@
 #include <vppinfra/string.h>
 #include <vppinfra/types.h>
 #include <vppinfra/vec.h>
-#include <vppinfra/bihash_vec8_8.h>
+#include <vppinfra/bihash_8_8.h>
 #include <vppinfra/bihash_template.h>
 
 #define DOMAIN_MAX 253

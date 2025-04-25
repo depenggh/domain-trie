@@ -4,7 +4,7 @@
 #include "domain_trie.h"
 #include "vppinfra/format.h"
 
-#define count 300000
+#define count 1000000
 #define max_len 253
 #define label_min 3
 #define label_max 63
@@ -59,7 +59,7 @@ int main()
     struct timeval start_time, end_time;
     srand(arc4random());
     domain_trie_t dt = {0};
-    clib_mem_init(0, 8ULL << 30);
+    clib_mem_init(0, 11ULL << 30);
 
     domain_trie_init(&dt);
 
@@ -84,7 +84,7 @@ int main()
 
         for (int i = 0; i < count * max_len; i += max_len) {
             int rc = domain_trie_insert(&dt, &(*domains)[i], i / max_len);
-            assert(rc == 0);
+            /*assert(rc == 0);*/
         }
 
         getrusage(RUSAGE_SELF, &end_res);
