@@ -84,7 +84,7 @@ int main()
 
         for (int i = 0; i < count * max_len; i += max_len) {
             int rc = domain_trie_insert(&dt, &(*domains)[i], i / max_len);
-            /*assert(rc == 0);*/
+            assert(rc == 0);
         }
 
         getrusage(RUSAGE_SELF, &end_res);
