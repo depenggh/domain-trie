@@ -65,20 +65,20 @@ int main()
 
     char (*domains)[count * max_len + 1] = calloc(count * max_len + 1, sizeof(char));
 
-    for (int i = 0; i < count * max_len; i += max_len) {
-        generate_domains(&(*domains)[i]);
-    }
+    /*for (int i = 0; i < count * max_len; i += max_len) {*/
+        /*generate_domains(&(*domains)[i]);*/
+    /*}*/
 
     /*FILE *file = fopen("data.txt", "w");*/
 
     /*size_t rc = fwrite((*domains), sizeof(char), count * max_len + 1, file);*/
     /*exit(0);*/
 
-    /*FILE *file = fopen("data.txt", "r");*/
-    /*size_t rc = fread(&(*domains), sizeof(char), count * max_len + 1, file);*/
-    /*fclose(file);*/
+    FILE *file = fopen("data.txt", "r");
+    size_t rc = fread(&(*domains), sizeof(char), count * max_len + 1, file);
+    fclose(file);
 
-    if (1) {
+    if (0) {
         getrusage(RUSAGE_SELF, &start_res);
         gettimeofday(&start_time, NULL);
 
@@ -118,7 +118,6 @@ int main()
         for (int i = 0; i < count * max_len; i += max_len) {
             u8 *pattern = format(0, "*.%s", &(*domains)[i]);
             domain_iprtree_insert(&sm, (const char *)pattern, i / max_len);
-            /*fformat(stderr, "insert: %s %d\n", (const char *)pattern, i / max_len);*/
         }
 
         getrusage(RUSAGE_SELF, &end_res);
@@ -141,14 +140,11 @@ int main()
         fformat(stderr,"Build tree: time: %llu sec, memory: %llu KB\n", all_time, all_mem);
 
         gettimeofday(&start_time, NULL);
-        for (int i = 0; i < count * max_len; i += max_len) {
+        int i = 0;
+        for (i = 0; i < count * max_len; i += max_len) {
             u8 *pattern = format(0, "1.%s", &(*domains)[i]);
             u64 backendsets = domain_iprtree_search(&sm, (const char*)pattern);
-            /*fformat(stderr, "%s: %llu\n", pattern, backendsets );*/
-            /*assert(backendsets == i / max_len);*/
-            if (backendsets != (i / max_len)) {
-                backendsets = domain_iprtree_search(&sm, (const char*)pattern);
-            }
+            assert(backendsets == i / max_len);
         }
         gettimeofday(&end_time, NULL);
 
