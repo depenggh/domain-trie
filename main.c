@@ -88,7 +88,7 @@ int main()
     struct timeval start_time, end_time;
     srand(arc4random());
     domain_trie_t dt = {0};
-    clib_mem_init(0, 4ULL << 30);
+    clib_mem_init(0, 8ULL << 30);
 
     domain_trie_init(&dt);
 
@@ -107,7 +107,7 @@ int main()
     /*size_t rc = fread(&(*domains), sizeof(char), count * max_len + 1, file);*/
     /*fclose(file);*/
 
-    if (1) {
+    if (0) {
         getrusage(RUSAGE_SELF, &start_res);
         gettimeofday(&start_time, NULL);
 
@@ -121,8 +121,7 @@ int main()
 
         u64 all_mem = end_res.ru_maxrss - start_res.ru_maxrss;
         u64 all_time = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000L;
-        fformat(stderr,"\nInsertion: time: %llu sec, memory: %llu KB\n\n", all_time, all_mem);
-
+        fformat(stderr,"\npatricia trie inserting %llu patterns: time: %llu sec, memory: %llu KB\n\n", count, all_time, all_mem);
 
         gettimeofday(&start_time, NULL);
         for (int i = 0; i < count * max_len; i += max_len) {
@@ -132,7 +131,7 @@ int main()
         gettimeofday(&end_time, NULL);
 
         all_time = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000L;
-        fformat(stderr,"\nLookup: time: %llu sec\n", all_time);
+        fformat(stderr,"\npatricia trie sarching %llu patterns: time: %llu sec\n", count, all_time);
 
     } else {
         // iprtree
@@ -154,7 +153,7 @@ int main()
 
         u64 all_mem = end_res.ru_maxrss - start_res.ru_maxrss;
         u64 all_time = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000L;
-        fformat(stderr,"Insertion: time: %llu sec, memory: %llu KB\n", all_time, all_mem);
+        fformat(stderr,"iprtree inserting %llu patterns: time: %llu sec, memory: %llu KB\n", count, all_time, all_mem);
 
         getrusage(RUSAGE_SELF, &start_res);
         gettimeofday(&start_time, NULL);
@@ -166,7 +165,7 @@ int main()
 
         all_mem = end_res.ru_maxrss - start_res.ru_maxrss;
         all_time = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000L;
-        fformat(stderr,"Build tree: time: %llu sec, memory: %llu KB\n", all_time, all_mem);
+        fformat(stderr,"iprtree building tree for %llu patterns: time: %llu sec, memory: %llu KB\n", count, all_time, all_mem);
 
         gettimeofday(&start_time, NULL);
         int i = 0;
@@ -178,7 +177,7 @@ int main()
         gettimeofday(&end_time, NULL);
 
         all_time = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000L;
-        fformat(stderr,"Lookup: time: %llu sec\n", all_time);
+        fformat(stderr,"iprtree searching %llu patterns: time: %llu sec\n", count, all_time);
 
 
 
