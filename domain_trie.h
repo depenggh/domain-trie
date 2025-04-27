@@ -15,7 +15,7 @@
 #define DOMAIN_MAX 253
 #define LABEL_MAX 63
 #define LABEL_DLM "."
-#define TRIE_HASH_SIZE 2ULL<< 30
+#define TRIE_HASH_SIZE 1ULL<< 30
 #define TRIE_HASH_BUCKET 142867
 #define TRIE_HASH_NAME "domain_trie_ht"
 #define BACK_HASH_NAME "domain_back_ht"
@@ -33,7 +33,9 @@ typedef struct  {
     BVT(clib_bihash) trie;
     BVT(clib_bihash) labels;
     BVT(clib_bihash) backendsets;
-    hash_value_t *pool_values;
+    hash_value_t *pool_trie;
+    hash_value_t *pool_labels;
+    hash_value_t *pool_backendsets;
 } domain_trie_t;
 
 void domain_trie_init(domain_trie_t *dt);

@@ -3,37 +3,66 @@
 #include "domain_iprtree.h"
 #include "domain_trie.h"
 #include "vppinfra/format.h"
+#include "vppinfra/vec_bootstrap.h"
 
-#define count 1000000
+#define count 2
 #define max_len 253
 #define label_min 3
 #define label_max 63
 #define label_count 4
 
-int dump_hash_kv(BVT(clib_bihash_kv) *kv, void *args)
+int dump_labels_kv(BVT(clib_bihash_kv) *kv, void *args)
 {
-    fformat(stderr, "%s %llu\n", (u8 *)kv->key, kv->value);
+    domain_trie_t *dt = args;
+    u32 *idxs = (u32 *)kv->value;
+    u32 *idx = 0;
+    vec_foreach(idx, idxs) {
+        hash_value_t *value = &dt->pool_labels[*idx];
+        fformat(stderr, "%llu %s %llu", kv->key, value->data, value->counter);
+    }
+    fformat(stderr, "\n\n");
     return 1;
 }
 
-void dump_hash_table(BVT(clib_bihash) *ht)
+void dump_labels_table(domain_trie_t *dt)
 {
-    BV(clib_bihash_foreach_key_value_pair)(ht, dump_hash_kv, (void *)0);
+    BV(clib_bihash_foreach_key_value_pair)(&dt->labels, dump_labels_kv, (void *)dt);
 }
 
-void debug_hash_table(domain_trie_t *dt)
+int dump_back_kv(BVT(clib_bihash_kv) *kv, void *args)
 {
-    fformat(stderr, "\n\ndump trie\n");
-    dump_hash_table(&dt->trie);
+    domain_trie_t *dt = args;
+    u32 *idxs = (u32 *)kv->value;
+    u32 *idx = 0;
+    vec_foreach(idx, idxs) {
+        hash_value_t *value = &dt->pool_backendsets[*idx];
+        fformat(stderr, "%llu %s %llu", kv->key, value->data, value->backendsets);
+    }
+    fformat(stderr, "\n\n");
+    return 1;
+}
 
-    fformat(stderr, "\n\ndump backend\n");
-    dump_hash_table(&dt->backendsets);
+void dump_back_table(domain_trie_t *dt)
+{
+    BV(clib_bihash_foreach_key_value_pair)(&dt->backendsets, dump_back_kv, (void *)dt);
+}
 
-    fformat(stderr, "\n\ndump labels\n");
-    dump_hash_table(&dt->labels);
+int dump_trie_kv(BVT(clib_bihash_kv) *kv, void *args)
+{
+    domain_trie_t *dt = args;
+    u32 *idxs = (u32 *)kv->value;
+    u32 *idx = 0;
+    vec_foreach(idx, idxs) {
+        hash_value_t *value = &dt->pool_trie[*idx];
+        fformat(stderr, "%llu %s %llu", kv->key, value->data, value->counter);
+    }
+    fformat(stderr, "\n\n");
+    return 1;
+}
 
-    fflush(stderr);
-    fflush(stderr);
+void dump_trie_table(domain_trie_t *dt)
+{
+    BV(clib_bihash_foreach_key_value_pair)(&dt->trie, dump_labels_kv, (void *)dt);
 }
 
 void generate_domains(char *domain)
@@ -59,26 +88,26 @@ int main()
     struct timeval start_time, end_time;
     srand(arc4random());
     domain_trie_t dt = {0};
-    clib_mem_init(0, 11ULL << 30);
+    clib_mem_init(0, 4ULL << 30);
 
     domain_trie_init(&dt);
 
     char (*domains)[count * max_len + 1] = calloc(count * max_len + 1, sizeof(char));
 
-    /*for (int i = 0; i < count * max_len; i += max_len) {*/
-        /*generate_domains(&(*domains)[i]);*/
-    /*}*/
+    for (int i = 0; i < count * max_len; i += max_len) {
+        generate_domains(&(*domains)[i]);
+    }
 
     /*FILE *file = fopen("data.txt", "w");*/
 
     /*size_t rc = fwrite((*domains), sizeof(char), count * max_len + 1, file);*/
     /*exit(0);*/
 
-    FILE *file = fopen("data.txt", "r");
-    size_t rc = fread(&(*domains), sizeof(char), count * max_len + 1, file);
-    fclose(file);
+    /*FILE *file = fopen("data.txt", "r");*/
+    /*size_t rc = fread(&(*domains), sizeof(char), count * max_len + 1, file);*/
+    /*fclose(file);*/
 
-    if (0) {
+    if (1) {
         getrusage(RUSAGE_SELF, &start_res);
         gettimeofday(&start_time, NULL);
 
