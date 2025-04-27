@@ -9,8 +9,11 @@ void domain_trie_init(domain_trie_t *dt)
     BV(clib_bihash_init)(&(dt->trie), TRIE_HASH_NAME, TRIE_HASH_BUCKET, TRIE_HASH_SIZE);
     BV(clib_bihash_init)(&(dt->labels), LABEL_HASH_NAME, TRIE_HASH_BUCKET, TRIE_HASH_SIZE);
     BV(clib_bihash_init)(&(dt->backendsets), BACK_HASH_NAME, TRIE_HASH_BUCKET, TRIE_HASH_SIZE);
-    dt->vec_label_t = NULL;
-    vec_add1(dt->vec_label_t, format(0, "*%c", 0));
+    dt->pool_values = NULL;
+    hash_value_t *value = NULL;
+    pool_get(dt->pool_values, value);
+    value->data = format(0, "*%c", 0);
+    value->counter = ~0U;
 }
 
 u8 **break_domain(char *domain)
@@ -28,6 +31,45 @@ u8 **break_domain(char *domain)
     return labels;
 }
 
+u32 *add_label(domain_trie_t *dt, const u8 *label)
+{
+    hash_value_t *value = 0;
+
+    pool_get(dt->pool_values, value);
+    value->counter = 1;
+    value->data = format(0, "%v%c", label, 0);
+
+    u32 *tmp = 0;
+    vec_add1(tmp, value - dt->pool_values);
+
+    return tmp;
+}
+
+u32 *update_label(domain_trie_t *dt, u64 value, const u8 *label)
+{
+    u32 *idxs = (u32 *)value;
+    u32 *idx = 0;
+    int found = 0;
+
+    vec_foreach(idx, idxs) {
+        if (vec_is_equal(dt->pool_values[*idx].data, label)) {
+            dt->pool_values[*idx].counter++;
+            found = 1;
+            break;
+        }
+    }
+
+    if (!found) {
+        hash_value_t *value = 0;
+        pool_get(dt->pool_values, value);
+        value->counter = 1;
+        value->data = format(0, "%v%c", label, 0);
+        vec_add1(idxs, value - dt->pool_values);
+    }
+
+    return idxs;
+}
+
 void insert_domain_labels(domain_trie_t *dt, u8 ** labels)
 {
     char *token = NULL;
@@ -39,12 +81,12 @@ void insert_domain_labels(domain_trie_t *dt, u8 ** labels)
 
         int rc = BV(clib_bihash_search)(&(dt->labels), &kv, &kv);
         if (rc < 0) {
-            vec_add1(dt->vec_label_t, (u8 *)kv.key);
-            kv.value = vec_len(dt->vec_label_t) - 1;
-            BV(clib_bihash_add_del)(&(dt->labels), &kv, 1);
+            kv.value = pointer_to_u64(add_label(dt, labels[i]));
         }else {
-
+            kv.value = pointer_to_u64(update_label(dt, kv.value,  labels[i]));
         }
+
+        BV(clib_bihash_add_del)(&(dt->labels), &kv, 1);
     }
 }
 
@@ -103,7 +145,7 @@ int domain_trie_insert(domain_trie_t *dt, const char *domain, u64 backendsets)
     }
 
     free(copy);
-    vec_free(prefix);
+    vec_free(labels);
     return 0;
 }
 

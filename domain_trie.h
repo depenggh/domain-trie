@@ -21,11 +21,19 @@
 #define BACK_HASH_NAME "domain_back_ht"
 #define LABEL_HASH_NAME "domain_label_ht"
 
+typedef struct {
+    u8 *data;
+    union {
+        u32 counter;
+        u64 backendsets;
+    };
+} hash_value_t;
+
 typedef struct  {
     BVT(clib_bihash) trie;
     BVT(clib_bihash) labels;
     BVT(clib_bihash) backendsets;
-    u8 **vec_label_t;
+    hash_value_t *pool_values;
 } domain_trie_t;
 
 void domain_trie_init(domain_trie_t *dt);
