@@ -23,7 +23,7 @@ static u8 **break_domain(char *domain)
 
     token = clib_strtok(domain, LABEL_DLM, &save);
     while (token) {
-        vec_add1(labels, format(0, "%s%c", token, 0));
+        vec_add1(labels, format(0, "%s", token));
         token = clib_strtok(NULL, LABEL_DLM, &save);
     }
 
@@ -36,7 +36,7 @@ static u32 *add_label(domain_trie_t *dt, const u8 *label)
 
     pool_get(dt->pool_labels, value);
     value->counter = 1;
-    value->data = format(0, "%v%c", label, 0);
+    value->data = format(0, "%v", label);
 
     u32 *tmp = 0;
     vec_add1(tmp, value - dt->pool_labels);
@@ -62,7 +62,7 @@ static u32 *update_label(domain_trie_t *dt, u64 value, const u8 *label)
         hash_value_t *value = 0;
         pool_get(dt->pool_labels, value);
         value->counter = 1;
-        value->data = format(0, "%v%c", label, 0);
+        value->data = format(0, "%v", label);
         vec_add1(idxs, value - dt->pool_labels);
     }
 
@@ -87,22 +87,23 @@ static void insert_domain_labels(domain_trie_t *dt, u8 ** labels)
     }
 }
 
-static u64 get_label_index(domain_trie_t *dt, const u8 *label)
+static u32 get_label_index(domain_trie_t *dt, const u8 *label)
 {
     BVT(clib_bihash_kv) kv;
-    u64 ret = ~0ULL;
+    u32 ret = ~0U;
 
-    u8 *tmp = format(0, "%s%c", label, 0);
-
-    kv.key = clib_crc32c(tmp, vec_len(tmp));
+    kv.key = clib_crc32c(label, vec_len(label));
 
     int rc = BV(clib_bihash_search)(&(dt->labels), &kv, &kv);
     if (rc == 0) {
         u32 *idxs =(u32 *)kv.value;
         u32 *idx = 0;
         vec_foreach(idx, idxs) {
-            if (vec_is_equal(pool_elt_at_index(dt->pool_labels, *idx)->data, label)) {
-                return *idx;
+            hash_value_t *v = pool_elt_at_index(dt->pool_labels, *idx);
+            u32 t = vec_len(v->data);
+            t = vec_len(label);
+            if (vec_is_equal(v->data, label)) {
+                ret = *idx;
             }
         }
     }
@@ -115,7 +116,7 @@ static u32 *add_trie(domain_trie_t *dt, const u8 *label)
 
     pool_get(dt->pool_trie, value);
     value->counter = 1;
-    value->data = format(0, "%v%c", label, 0);
+    value->data = format(0, "%v", label);
 
     u32 *tmp = 0;
     vec_add1(tmp, value - dt->pool_trie);
@@ -141,7 +142,7 @@ static u32 *update_trie(domain_trie_t *dt, u64 value, const u8 *label)
         hash_value_t *value = 0;
         pool_get(dt->pool_trie, value);
         value->counter = 1;
-        value->data = format(0, "%v%c", label, 0);
+        value->data = format(0, "%v", label);
         vec_add1(idxs, value - dt->pool_trie);
     }
 
@@ -154,7 +155,7 @@ static u32 *add_backendset(domain_trie_t *dt, const u8 *suffix, u64 backendsets)
 
     pool_get(dt->pool_backendsets, value);
     value->backendsets = backendsets;
-    value->data = format(0, "%v%c", suffix, 0);
+    value->data = format(0, "%v", suffix);
 
     u32 *tmp = 0;
     vec_add1(tmp, value - dt->pool_backendsets);
@@ -180,7 +181,7 @@ static u32 *update_backendset(domain_trie_t *dt, u64 value, const u8 *suffix, u6
         hash_value_t *value = 0;
         pool_get(dt->pool_backendsets, value);
         value->backendsets = backendsets;
-        value->data = format(0, "%v%c", suffix, 0);
+        value->data = format(0, "%v", suffix);
         vec_add1(idxs, value - dt->pool_backendsets);
     }
 
@@ -208,12 +209,12 @@ int domain_trie_insert(domain_trie_t *dt, const char *domain, u64 backendsets)
 
         rc =  BV(clib_bihash_search)(&(dt->trie), &kv, &kv);
         if (rc < 0) {
-            kv.value = pointer_to_u64(add_trie(dt, labels[i]));
+            kv.value = pointer_to_u64(add_trie(dt, prefix));
         } else {
-            kv.value = pointer_to_u64(update_trie(dt, kv.value,  labels[i]));
+            kv.value = pointer_to_u64(update_trie(dt, kv.value, prefix));
         }
 
-        BV(clib_bihash_add_del)(&(dt->labels), &kv, 1);
+        BV(clib_bihash_add_del)(&(dt->trie), &kv, 1);
     }
 
     rc =  BV(clib_bihash_search)(&(dt->backendsets), &kv, &kv);
@@ -252,7 +253,7 @@ u64 domain_trie_search(domain_trie_t *dt, const char *domain)
         int rc = BV(clib_bihash_search)(&(dt->trie), &kv, &kv );
         if (rc < 0) {
             vec_del1(prefix, vec_len(prefix) - 1);
-            prefix = format(prefix, "*%c", 0);
+            prefix = format(prefix, "*");
             kv.key = clib_crc32c(prefix, vec_len(prefix));
 
             int rc = BV(clib_bihash_search)(&(dt->trie), &kv, &kv );
@@ -268,8 +269,17 @@ u64 domain_trie_search(domain_trie_t *dt, const char *domain)
 
     kv.key = best_match_key;
     int rc = BV(clib_bihash_search)(&(dt->backendsets), &kv, &kv );
-    if (rc >= 0) {
-        best_match = kv.value;
+    if (rc == 0) {
+        u32 *idxs = (u32 *)kv.value;
+        u32 *idx = 0;
+        vec_foreach(idx, idxs) {
+            hash_value_t *tmp = pool_elt_at_index(dt->pool_backendsets, *idx);
+            u32 t = vec_len(tmp->data);
+            t = vec_len(prefix);
+            if (vec_is_equal(tmp->data, prefix)){
+                best_match = *idx;
+            }
+        }
     }
 
     free(copy);

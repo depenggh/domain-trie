@@ -5,7 +5,7 @@
 #include "vppinfra/format.h"
 #include "vppinfra/vec_bootstrap.h"
 
-#define count 2
+#define count 1000000
 #define max_len 253
 #define label_min 3
 #define label_max 63
@@ -18,7 +18,7 @@ int dump_labels_kv(BVT(clib_bihash_kv) *kv, void *args)
     u32 *idx = 0;
     vec_foreach(idx, idxs) {
         hash_value_t *value = &dt->pool_labels[*idx];
-        fformat(stderr, "%llu %s %llu", kv->key, value->data, value->counter);
+        fformat(stderr, "%llu %v %llu", kv->key, value->data, value->counter);
     }
     fformat(stderr, "\n\n");
     return 1;
@@ -36,7 +36,7 @@ int dump_back_kv(BVT(clib_bihash_kv) *kv, void *args)
     u32 *idx = 0;
     vec_foreach(idx, idxs) {
         hash_value_t *value = &dt->pool_backendsets[*idx];
-        fformat(stderr, "%llu %s %llu", kv->key, value->data, value->backendsets);
+        fformat(stderr, "%llu %v %llu", kv->key, value->data, value->backendsets);
     }
     fformat(stderr, "\n\n");
     return 1;
@@ -54,7 +54,7 @@ int dump_trie_kv(BVT(clib_bihash_kv) *kv, void *args)
     u32 *idx = 0;
     vec_foreach(idx, idxs) {
         hash_value_t *value = &dt->pool_trie[*idx];
-        fformat(stderr, "%llu %s %llu", kv->key, value->data, value->counter);
+        fformat(stderr, "%llu %v %llu", kv->key, value->data, value->counter);
     }
     fformat(stderr, "\n\n");
     return 1;
@@ -62,7 +62,7 @@ int dump_trie_kv(BVT(clib_bihash_kv) *kv, void *args)
 
 void dump_trie_table(domain_trie_t *dt)
 {
-    BV(clib_bihash_foreach_key_value_pair)(&dt->trie, dump_labels_kv, (void *)dt);
+    BV(clib_bihash_foreach_key_value_pair)(&dt->trie, dump_trie_kv, (void *)dt);
 }
 
 void generate_domains(char *domain)
