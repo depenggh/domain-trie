@@ -1,5 +1,6 @@
 #include "iprtree.h"
 #include "sniproxy.h"
+#include "vlib/main.h"
 
 u8 iprtree_conversion[256];
 u8 inversed_iprtree_conversion[256];
@@ -351,4 +352,8 @@ iprtree_init (vlib_main_t *vm)
   return 0;
 }
 
+
+void do_init() {
+    iprtree_init ((vlib_main_t *)NULL);
+}
 //VLIB_INIT_FUNCTION (iprtree_init);

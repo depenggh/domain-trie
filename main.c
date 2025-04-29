@@ -1,14 +1,10 @@
-#include <arm_neon.h>
 #include <assert.h>
-#include <bits/types/struct_rusage.h>
-#include <stdint.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <sys/time.h>
 #include "domain_iprtree.h"
 #include "domain_trie.h"
 #include "vppinfra/format.h"
-#include "vppinfra/xxhash.h"
-#include <sys/time.h>
+#include "vppinfra/vec_bootstrap.h"
 
 #define count 1000000
 #define max_len 253
@@ -16,30 +12,79 @@
 #define label_max 63
 #define label_count 4
 
-int dump_hash_kv(BVT(clib_bihash_kv) *kv, void *args)
+int count_kvs(BVT(clib_bihash_kv) *kv, void *args)
 {
-    fformat(stderr, "%s %llu\n", (u8 *)kv->key, kv->value);
+    u64 *a = args;
+    u32 *idxs = (u32 *)kv->value;
+    u32 *idx = 0;
+    vec_foreach(idx, idxs) {
+        ++*a;
+    }
+
     return 1;
 }
 
-void dump_hash_table(BVT(clib_bihash) *ht)
+u64 count_kv_table(BVT(clib_bihash) *ht)
 {
-    BV(clib_bihash_foreach_key_value_pair)(ht, dump_hash_kv, (void *)0);
+    u64 a = 0;
+
+    BV(clib_bihash_foreach_key_value_pair)(ht, count_kvs, (void *)&a);
+
+    return a;
 }
 
-void debug_hash_table(domain_trie_t *dt)
+int dump_labels_kv(BVT(clib_bihash_kv) *kv, void *args)
 {
-    fformat(stderr, "\n\ndump trie\n");
-    dump_hash_table(&dt->trie);
+    domain_trie_t *dt = args;
+    u32 *idxs = (u32 *)kv->value;
+    u32 *idx = 0;
+    vec_foreach(idx, idxs) {
+        hash_value_t *value = &dt->pool_labels[*idx];
+        fformat(stderr, "%llu %v %llu", kv->key, value->data, value->counter);
+    }
+    fformat(stderr, "\n\n");
+    return 1;
+}
 
-    fformat(stderr, "\n\ndump backend\n");
-    dump_hash_table(&dt->backendsets);
+void dump_labels_table(domain_trie_t *dt)
+{
+    BV(clib_bihash_foreach_key_value_pair)(&dt->labels, dump_labels_kv, (void *)dt);
+}
 
-    fformat(stderr, "\n\ndump labels\n");
-    dump_hash_table(&dt->labels);
+int dump_back_kv(BVT(clib_bihash_kv) *kv, void *args)
+{
+    domain_trie_t *dt = args;
+    u32 *idxs = (u32 *)kv->value;
+    u32 *idx = 0;
+    vec_foreach(idx, idxs) {
+        hash_value_t *value = &dt->pool_backendsets[*idx];
+        fformat(stderr, "%llu %v %llu", kv->key, value->data, value->backendsets);
+    }
+    fformat(stderr, "\n\n");
+    return 1;
+}
 
-    fflush(stderr);
-    fflush(stderr);
+void dump_back_table(domain_trie_t *dt)
+{
+    BV(clib_bihash_foreach_key_value_pair)(&dt->backendsets, dump_back_kv, (void *)dt);
+}
+
+int dump_trie_kv(BVT(clib_bihash_kv) *kv, void *args)
+{
+    domain_trie_t *dt = args;
+    u32 *idxs = (u32 *)kv->value;
+    u32 *idx = 0;
+    vec_foreach(idx, idxs) {
+        hash_value_t *value = &dt->pool_trie[*idx];
+        fformat(stderr, "%llu %v %llu", kv->key, value->data, value->counter);
+    }
+    fformat(stderr, "\n\n");
+    return 1;
+}
+
+void dump_trie_table(domain_trie_t *dt)
+{
+    BV(clib_bihash_foreach_key_value_pair)(&dt->trie, dump_trie_kv, (void *)dt);
 }
 
 void generate_domains(char *domain)
@@ -59,13 +104,13 @@ void generate_domains(char *domain)
     domain[pos] = '\0';
 }
 
-int main()
+int run()
 {
     struct rusage start_res, end_res;
     struct timeval start_time, end_time;
     srand(arc4random());
     domain_trie_t dt = {0};
-    clib_mem_init(0, 4ULL << 30);
+    clib_mem_init(0, 8ULL << 30);
 
     domain_trie_init(&dt);
 
@@ -75,13 +120,20 @@ int main()
         generate_domains(&(*domains)[i]);
     }
 
+    /*FILE *file = fopen("data.txt", "w");*/
+
+    /*size_t rc = fwrite((*domains), sizeof(char), count * max_len + 1, file);*/
+    /*exit(0);*/
+
+    /*FILE *file = fopen("data.txt", "r");*/
+    /*size_t rc = fread(&(*domains), sizeof(char), count * max_len + 1, file);*/
+    /*fclose(file);*/
 
     if (1) {
         getrusage(RUSAGE_SELF, &start_res);
         gettimeofday(&start_time, NULL);
 
         for (int i = 0; i < count * max_len; i += max_len) {
-            fformat(stderr, "insert: %s %d %d\n", &(*domains)[i], i, i / max_len);
             int rc = domain_trie_insert(&dt, &(*domains)[i], i / max_len);
             assert(rc == 0);
         }
@@ -89,28 +141,36 @@ int main()
         getrusage(RUSAGE_SELF, &end_res);
         gettimeofday(&end_time, NULL);
 
+        fformat(stderr, "Patricia Trie:\n");
         u64 all_mem = end_res.ru_maxrss - start_res.ru_maxrss;
         u64 all_time = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000L;
-        fformat(stderr,"\nInsertion: time: %llu sec, memory: %llu KB\n\n", all_time, all_mem);
-
+        fformat(stderr,"inserting %llu patterns: time: %llu sec, memory: %llu KB\n\n", count, all_time, all_mem);
 
         gettimeofday(&start_time, NULL);
         for (int i = 0; i < count * max_len; i += max_len) {
             u64 backendsets = domain_trie_search(&dt, &(*domains)[i]);
-            fformat(stderr, "lookup: %s %d: %llu\n", &(*domains)[i], i, backendsets);
             assert(backendsets == (i / max_len));
         }
         gettimeofday(&end_time, NULL);
 
         all_time = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000L;
-        fformat(stderr,"\nLookup: time: %llu sec\n", all_time);
+        fformat(stderr,"sarching %llu patterns: time: %llu sec\n", count, all_time);
+
+        u64 k = count_kv_table(&dt.backendsets);
+        assert(k == count);
+
+        int rc = domain_trie_insert(&dt, "*.cisco.io", 12);
+        assert(rc == 0);
+
+        u64 backendsets = domain_trie_search(&dt, "1.cisco.io");
+        assert(backendsets == 12);
 
     } else {
         // iprtree
         sniproxy_main_t sm = {0};
         domain_iprtree_init(&sm);
 
-        /*
+
         getrusage(RUSAGE_SELF, &start_res);
         gettimeofday(&start_time, NULL);
 
@@ -118,15 +178,15 @@ int main()
         for (int i = 0; i < count * max_len; i += max_len) {
             u8 *pattern = format(0, "*.%s", &(*domains)[i]);
             domain_iprtree_insert(&sm, (const char *)pattern, i / max_len);
-            fformat(stderr, "insert: %s %d\n", (const char *)pattern, i / max_len);
         }
 
         getrusage(RUSAGE_SELF, &end_res);
         gettimeofday(&end_time, NULL);
 
+        fformat(stderr, "Iprtree:\n");
         u64 all_mem = end_res.ru_maxrss - start_res.ru_maxrss;
         u64 all_time = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000L;
-        fformat(stderr,"Insertion: time: %llu sec, memory: %llu KB\n", all_time, all_mem);
+        fformat(stderr,"inserting %llu patterns: time: %llu sec, memory: %llu KB\n", count, all_time, all_mem);
 
         getrusage(RUSAGE_SELF, &start_res);
         gettimeofday(&start_time, NULL);
@@ -138,31 +198,27 @@ int main()
 
         all_mem = end_res.ru_maxrss - start_res.ru_maxrss;
         all_time = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000L;
-        fformat(stderr,"Build tree: time: %llu sec, memory: %llu KB\n", all_time, all_mem);
+        fformat(stderr,"building tree for %llu patterns: time: %llu sec, memory: %llu KB\n", count, all_time, all_mem);
 
         gettimeofday(&start_time, NULL);
-        for (int i = 0; i < count * max_len; i += max_len) {
+        int i = 0;
+        for (i = 0; i < count * max_len; i += max_len) {
             u8 *pattern = format(0, "1.%s", &(*domains)[i]);
             u64 backendsets = domain_iprtree_search(&sm, (const char*)pattern);
-            fformat(stderr, "%s: %llu\n", pattern, backendsets );
-            assert(backendsets == i);
+            assert(backendsets == i / max_len);
         }
         gettimeofday(&end_time, NULL);
 
         all_time = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000L;
-        fformat(stderr,"Lookup: time: %llu sec\n", all_time);
+        fformat(stderr,"searching %llu patterns: time: %llu sec\n", count, all_time);
 
-        */
-
-        /*const char *test = "vhqbl5fxb22ts13zes5j66a6l7sayn0yu.d5pi7qac-shgvmcp-8la.al0pocebazekd2vu2x.y4djufcud29l2jpvx70clowv7nfqtg";*/
-        /*domain_iprtree_insert(&sm, test, 0);*/
-        /*domain_iprtree_commit(&sm);*/
-        /*u64 backendsets;*/
-        /*backendsets = domain_iprtree_search(&sm, "vhqbl5fxb22ts13zes5j66a6l7sayn0yu.d5pi7qac-shgvmcp-8la.al0pocebazekd2vu2x.y4djufcud29l2jpvx70clowv7nfqtg");*/
-        /*fformat(stderr, "%s: %llu\n", test, backendsets);*/
-        /*assert(backendsets == 0);*/
     }
 
     free(domains);
     return EXIT_SUCCESS;
+}
+
+int main()
+{
+    return run();
 }

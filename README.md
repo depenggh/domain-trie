@@ -1,18 +1,23 @@
 # 1 mil domain name for iprtree
 with optimization: only build the iprtree once at the end.
 ```
-Insertion: time: 85 sec, memory: 237312 KB
-```
+Iprtree:
 
-```
-Insertion: time: 19 sec, memory: 195456 KB
-Build tree: time: 56 sec, memory: 41728 KB
+inserting 1000000 patterns: time: 1 sec, memory: 420992 KB
+
+building tree for 1000000 patterns: time: 4 sec, memory: 4519552 KB
+
+searching 1000000 patterns: time: 2 sec
 
 ```
 
 # 1 mil domain name for patricia trie
 ```
-Insertion: time: 23 sec, memory: 295040 KB
+Patricia Trie:
+
+inserting 1000000 patterns: time: 9 sec, memory: 1563392 KB
+
+sarching 1000000 patterns: time: 6 sec
 ```
 
 

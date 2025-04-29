@@ -2,6 +2,9 @@
 #include "sniproxy.h"
 #include "vppinfra/format.h"
 #include <stdio.h>
+
+void do_init();
+
 u8 *
 sniproxy_prepare_pattern (u8 *pattern)
 {
@@ -59,7 +62,7 @@ void domain_iprtree_init(sniproxy_main_t *sm)
     u64 table_id = table - sm->tables;
       /* Initialise underlying structure */
     table->tree.iprtree_root_node_index = IPRTREE_INVALID_INDEX;
-
+    do_init();
 }
 
 void domain_iprtree_insert(sniproxy_main_t *sm, const char *domain, u64 backendsets)
@@ -98,5 +101,24 @@ void domain_iprtree_commit(sniproxy_main_t *sm)
 
 u64 domain_iprtree_search(sniproxy_main_t *sm, const char *domain)
 {
-    
+    u32 table_id = 0;
+    sniproxy_table_t *table = sniproxy_table_get (sm, table_id);
+    iprtree_t *tree = &table->tree;
+    sniproxy_backend_set_t *bset;
+    sniproxy_backend_t *b;
+    iprtree_leaf_index_t tgt;
+
+    if (tree->iprtree_root_node_index == IPRTREE_INVALID_INDEX)
+      return -1;
+
+    u8 * sni = format(0, "%s%c", domain, 0);
+    clib_memmove (sni + 1, sni, vec_len (sni) - 1);
+    sni[0] = 0;
+    tgt = iprtree_lookup (&sm->iprtree_container, tree, sni, vec_len(sni));
+
+    if (tgt == IPRTREE_INVALID_INDEX)
+      return -1;
+
+    vec_free(sni);
+    return tgt;
 }
